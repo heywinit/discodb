@@ -5,41 +5,42 @@ import (
 	"github.com/joho/godotenv"
 
 	"log"
+	"os"
+	"os/signal"
 )
 
-func main() {
+var token string
+var s *discordgo.Session
+
+func init() {
 	env, _ := godotenv.Read(".env")
-	token := env["DISCORD_TOKEN"]
-	if token == "" {
-		log.Fatal("No token provided")
-		return
-	}
-
-	discord, err := discordgo.New("Bot " + token)
+	token = env["DISCORD_TOKEN"]
+	var err error
+	s, err = discordgo.New("Bot " + token)
 	if err != nil {
-		log.Fatal("Error creating Discord session: ", err)
-		return
+		log.Fatalf("Invalid bot parameters: %v", err)
 	}
+}
 
-	discord.AddHandler(messageCreate)
+func main() {
+	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
+		log.Printf("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
+	})
+	s.Identify.Intents = discordgo.IntentsGuildMessages
 
-	err = discord.Open()
+	err := s.Open()
 	if err != nil {
 		log.Fatal("Error opening connection: ", err)
 		return
 	}
-}
 
-func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	//ignore bot messages
-	if m.Author.ID == s.State.User.ID {
-		return
-	}
+	defer s.Close()
 
-	if m.Content == "ping" {
-		_, err := s.ChannelMessageSend(m.ChannelID, "Pong!")
-		if err != nil {
-			return
-		}
-	}
+	log.Println("Bot is now running.")
+
+	// Keep the bot running
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt)
+	log.Println("Press Ctrl+C to exit")
+	<-stop
 }
