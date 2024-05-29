@@ -23,4 +23,6 @@ func main() {
 		{Name: "name", Type: "string"},
 		{Name: "age", Type: "int"},
 	})
+
+	db.Close()
 }
