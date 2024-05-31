@@ -7,8 +7,8 @@ import (
 )
 
 type IDStore struct {
-	Categories map[string]string
-	Channels   map[string]string
+	Categories map[string]string `json:"categories"`
+	Channels   map[string]string `json:"channels"`
 }
 
 type Database struct {
@@ -87,6 +87,31 @@ func NewDatabase(token, guildId string) (*Database, error) {
 	}, nil
 }
 
+func LoadDatabase(token, guildId string) (*Database, error) {
+	//get id store
+	idStore, err := LoadSavedDatabase("store.didb")
+	if err != nil {
+		panic(err)
+	}
+
+	client, err := discordgo.New("Bot " + token)
+	if err != nil {
+		panic(err)
+	}
+	err = client.Open()
+	if err != nil {
+		panic(err)
+	}
+
+	return &Database{
+		Token:   token,
+		GuildId: guildId,
+		Tables:  make([]*Table, 0),
+		Client:  client,
+		IdStore: *idStore,
+	}, nil
+}
+
 func (db *Database) CreateTable(name string, columns []Column) (*Table, error) {
 	table := &Table{
 		Name:    name,
@@ -149,5 +174,16 @@ func (db *Database) CreateTable(name string, columns []Column) (*Table, error) {
 }
 
 func (db *Database) Close() error {
-	return db.Client.Close()
+	//store the IdStore into a file
+	err := db.SaveDatabase("store.didb", db.IdStore)
+	if err != nil {
+		return err
+	}
+
+	err = db.Client.Close()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

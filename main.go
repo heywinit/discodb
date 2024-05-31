@@ -13,7 +13,7 @@ func main() {
 	fmt.Printf("   Token: %s\n", token)
 	fmt.Printf("Guild ID: %s\n", guildId)
 
-	db, err := discodb.NewDatabase(token, guildId)
+	db, err := discodb.LoadDatabase(token, guildId)
 	if err != nil {
 		panic(err)
 	}
@@ -24,5 +24,9 @@ func main() {
 		{Name: "age", Type: "int"},
 	})
 
-	db.Close()
+	err = db.Close()
+	if err != nil {
+		fmt.Print(err)
+		return
+	}
 }
