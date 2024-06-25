@@ -19,20 +19,6 @@ type Database struct {
 	IdStore IDStore
 }
 
-type Column struct {
-	Name   string
-	Type   string
-	Unique bool
-}
-
-// Table TODO: now that im thinking of it, we might use something like mongo does with bson. so you can give a struct, and it serializes that into something and stores that. but that would add overhead. anyways, its 1am i should go sleep
-type Table struct {
-	Database *Database                `json:"database"`
-	Name     string                   `json:"name"`
-	Columns  []Column                 `json:"columns"`
-	Rows     []map[string]interface{} `json:"rows"`
-}
-
 func NewDatabase(token, guildId string) (*Database, error) {
 	if token == "" || guildId == "" {
 		return nil, errors.New("invalid Discord Bot Token or Guild ID")
@@ -88,25 +74,103 @@ func NewDatabase(token, guildId string) (*Database, error) {
 }
 
 func LoadDatabase(token, guildId string) (*Database, error) {
-	//get id store
+	// get id store
 	idStore, err := LoadSavedDatabase("store.didb")
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	client, err := discordgo.New("Bot " + token)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	err = client.Open()
 	if err != nil {
-		panic(err)
+		return nil, err
+	}
+
+	// check if the categories and channels exist
+	x := []string{"tables", "discodb"}
+	for i := 0; i < len(x); i++ {
+		if _, ok := idStore.Categories[x[i]]; !ok {
+			tableCategory, err := client.GuildChannelCreate(guildId, x[i], discordgo.ChannelTypeGuildCategory)
+			if err != nil {
+				return nil, err
+			}
+			idStore.Categories[x[i]] = tableCategory.ID
+		}
+	}
+
+	// check if channels exist
+	tables := make([]*Table, 0)
+	x = []string{"tables"}
+	for i := 0; i < len(x); i++ {
+		if _, ok := idStore.Channels[x[i]]; !ok {
+			tablesChannel, err := client.GuildChannelCreate(guildId, x[i], discordgo.ChannelTypeGuildText)
+			if err != nil {
+				return nil, err
+			}
+			_, err = client.ChannelEditComplex(tablesChannel.ID, &discordgo.ChannelEdit{
+				ParentID: idStore.Categories["discodb"],
+			})
+			if err != nil {
+				return nil, err
+			}
+			idStore.Channels[x[i]] = tablesChannel.ID
+		} else {
+			// get message from this tables channel
+			tablesChannel, err := client.Channel(idStore.Channels[x[i]])
+			if err != nil {
+				return nil, err
+			}
+			messages, err := client.ChannelMessages(tablesChannel.ID, 1, "", "", "")
+			if err != nil {
+				return nil, err
+			}
+			// if no messages exist
+			if len(messages) == 0 {
+				tables := make([]string, 0)
+				tablesJson, _ := json.Marshal(tables)
+				_, err = client.ChannelMessageSend(tablesChannel.ID, string(tablesJson))
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+
+	// deserialize the tables
+	for _, channel := range idStore.Channels {
+		tablesChannel, err := client.Channel(channel)
+		if err != nil {
+			return nil, err
+		}
+		messages, err := client.ChannelMessages(tablesChannel.ID, 1, "", "", "")
+		if err != nil {
+			return nil, err
+		}
+		if len(messages) > 0 {
+			var deserializedTables []string
+			err = json.Unmarshal([]byte(messages[0].Content), &deserializedTables)
+			if err != nil {
+				return nil, err
+			}
+			for i := 0; i < len(deserializedTables); i++ {
+				var table Table
+				err = json.Unmarshal([]byte(deserializedTables[i]), &table)
+				if err != nil {
+					return nil, err
+				}
+				// append the table to the database
+				tables = append(tables, &table)
+			}
+		}
 	}
 
 	return &Database{
 		Token:   token,
 		GuildId: guildId,
-		Tables:  make([]*Table, 0),
+		Tables:  tables,
 		Client:  client,
 		IdStore: *idStore,
 	}, nil
