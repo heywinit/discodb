@@ -2,6 +2,7 @@ package main
 
 import (
 	"DiscoDB/internal/api"
+	"DiscoDB/internal/models"
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
 	"log"
@@ -23,8 +24,9 @@ func main() {
 		log.Fatal("Error creating Discord client:", err)
 	}
 
-	// Example usage
+	// Example usage: Create a new database
 	database, err := client.LoadDatabase(os.Getenv("DISCORD_GUILD_ID"))
+	//database, err := client.CreateDatabase("TestDatabase1")
 	if err != nil {
 		log.Fatal("Error creating database:", err)
 	}
@@ -34,9 +36,26 @@ func main() {
 		"name": "string",
 	}
 
-	table, err := client.CreateTable(database.ID, "Users", schema)
+	// Example usage: Create a new table (text channel)
+	table, err := client.CreateTable(*database, "Users", schema)
 	if err != nil {
 		log.Fatal("Error creating table:", err)
+	}
+
+	// Example usage: Create a new record in the table
+	newRecord := models.Record{
+		ID:     "1",
+		Fields: map[string]interface{}{"id": 1, "name": "Alice"},
+	}
+	err = client.CreateRecord(table.ID, newRecord)
+	if err != nil {
+		log.Fatal("Error creating record:", err)
+	}
+
+	// Example usage: Read all records from the table
+	records, err := client.ReadRecords(table.ID)
+	if err != nil {
+		log.Fatal("Error reading records:", err)
 	}
 
 	// Create an invite link for the table (text channel)
@@ -48,7 +67,6 @@ func main() {
 		log.Fatal("Error creating invite link:", err)
 	}
 
-	log.Printf("Database created: %v\n", database)
-	log.Printf("Table created: %v\n", table)
 	log.Printf("Invite link: https://discord.gg/%s\n", invite.Code)
+	log.Printf("Records read from table %s: %v\n", table.Name, records)
 }

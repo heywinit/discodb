@@ -3,12 +3,25 @@ package api
 import (
 	"DiscoDB/internal/models"
 	"encoding/json"
+	"errors"
 	"github.com/bwmarrin/discordgo"
 )
 
 // CreateTable creates a new text channel to represent a table within a specific database.
-func (client *DBClient) CreateTable(databaseID string, tableName string, schema map[string]string) (*models.Table, error) {
-	channel, err := client.Session.GuildChannelCreate(databaseID, tableName, discordgo.ChannelTypeGuildText)
+func (client *DBClient) CreateTable(database models.Database, tableName string, schema map[string]string) (*models.Table, error) {
+	internalCategoryID := database.InternalCategoryID
+	if internalCategoryID == "" {
+		return nil, errors.New("internal category not found")
+	}
+
+	// Get the tables metadata channel
+	tablesMetadataChannelID := database.MetadataChannelID
+	if tablesMetadataChannelID == "" {
+		return nil, errors.New("tables metadata channel not found")
+	}
+
+	// Create the new table (text channel)
+	channel, err := client.Session.GuildChannelCreate(database.ID, tableName, discordgo.ChannelTypeGuildText)
 	if err != nil {
 		return nil, err
 	}
@@ -19,14 +32,28 @@ func (client *DBClient) CreateTable(databaseID string, tableName string, schema 
 		Schema: schema,
 	}
 
-	// Store the schema in the channel topic or a pinned message
-	schemaData, err := json.Marshal(schema)
+	// Update metadata
+	messages, err := client.Session.ChannelMessages(tablesMetadataChannelID, 1, "", "", "")
+	if err != nil || len(messages) == 0 {
+		return nil, errors.New("failed to retrieve metadata message")
+	}
+
+	var metadata map[string]interface{}
+	err = json.Unmarshal([]byte(messages[0].Content), &metadata)
 	if err != nil {
 		return nil, err
 	}
-	_, err = client.Session.ChannelEditComplex(channel.ID, &discordgo.ChannelEdit{
-		Topic: string(schemaData),
-	})
+
+	tables := metadata["tables"].(map[string]interface{})
+	tables[tableName] = table
+	metadata["tables"] = tables
+
+	updatedMetadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = client.Session.ChannelMessageEdit(tablesMetadataChannelID, messages[0].ID, string(updatedMetadataJSON))
 	if err != nil {
 		return nil, err
 	}
