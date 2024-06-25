@@ -4,5 +4,6 @@ A database that stores data in Discord. Created using GoLang & (discordgo)[https
 ## Features
 - [x] Unlimited data storage
 - [] SDK/API for easy comms
-- [] Data encryption
-- [] 
+- [] Logging & Monitoring
+- [] Ratelimit Management
+- [] Concurrency Control with Multiple Instances (might violate TOS so not sure)
