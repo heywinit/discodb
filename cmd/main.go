@@ -7,7 +7,11 @@ import (
 	"github.com/joho/godotenv"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 )
+
+//TODO: Fix internal category not found error in LoadDatabase
 
 func main() {
 	err := godotenv.Load()
@@ -23,6 +27,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Error creating Discord client:", err)
 	}
+	defer client.Close()
 
 	// Example usage: Create a new database
 	database, err := client.LoadDatabase(os.Getenv("DISCORD_GUILD_ID"))
@@ -69,4 +74,10 @@ func main() {
 
 	log.Printf("Invite link: https://discord.gg/%s\n", invite.Code)
 	log.Printf("Records read from table %s: %v\n", table.Name, records)
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+
+	// Wait for a signal
+	<-stop
 }

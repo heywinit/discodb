@@ -13,11 +13,32 @@ type DBClient struct {
 
 // NewDBClient creates a new DBClient instance.
 func NewDBClient(token string) (*DBClient, error) {
+	intents := discordgo.IntentsGuilds |
+		discordgo.IntentsGuildMembers |
+		discordgo.IntentsGuildMessages |
+		discordgo.IntentsGuildMessageReactions |
+		discordgo.IntentsGuildMessageTyping |
+		discordgo.IntentsGuildVoiceStates |
+		discordgo.IntentsGuildPresences
+
 	session, err := discordgo.New("Bot " + token)
 	if err != nil {
 		return nil, err
 	}
-	return &DBClient{Session: session}, nil
+
+	session.Identify.Intents = intents
+
+	client := &DBClient{
+		Session: session,
+	}
+
+	// Open the Discord session
+	err = session.Open()
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
 }
 
 // CreateDatabase creates a new Discord server to represent a database.
@@ -78,18 +99,47 @@ func (client *DBClient) LoadDatabase(databaseID string) (*models.Database, error
 	}
 
 	var internalCategoryID string
-	for _, channel := range guild.Channels {
-		if channel.Name == "internal" && channel.Type == discordgo.ChannelTypeGuildCategory {
+	var metadataChannelID string
+	channels, _ := client.Session.GuildChannels(guild.ID)
+	for _, channel := range channels {
+		if channel.Type == discordgo.ChannelTypeGuildCategory && channel.Name == "internal" {
 			internalCategoryID = channel.ID
-			break
+		}
+		if channel.Type == discordgo.ChannelTypeGuildText && channel.Name == "tables" && channel.ParentID == internalCategoryID {
+			metadataChannelID = channel.ID
+			//get metadata for tables
+			messages, _ := client.Session.ChannelMessages(metadataChannelID, 1, "", "", "")
+			for _, message := range messages {
+				var metadata map[string]interface{}
+				err := json.Unmarshal([]byte(message.Content), &metadata)
+				if err != nil {
+					return nil, err
+				}
+
+				//get tables in metadata
+				tables := metadata["tables"].(map[string]interface{})
+				for _, table := range tables {
+					records := table.(map[string]interface{})["records"]
+					for _, record := range records.(map[string]interface{}) {
+						fields := record.(map[string]interface{})["fields"]
+						for fieldName, fieldValue := range fields.(map[string]interface{}) {
+							_ = fieldName
+							_ = fieldValue
+						}
+					}
+				}
+			}
 		}
 	}
 
-	return &models.Database{
+	db := &models.Database{
 		ID:                 guild.ID,
 		Name:               guild.Name,
 		InternalCategoryID: internalCategoryID,
-	}, nil
+		MetadataChannelID:  metadataChannelID,
+	}
+
+	return db, nil
 }
 
 // DeleteDatabase deletes an existing Discord server representing a database.
@@ -97,6 +147,16 @@ func (client *DBClient) DeleteDatabase(databaseID string) error {
 	err := client.Session.GuildDelete(databaseID)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func (client *DBClient) Close() error {
+	if client.Session != nil {
+		err := client.Session.Close()
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
