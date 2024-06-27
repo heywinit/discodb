@@ -11,8 +11,6 @@ import (
 	"syscall"
 )
 
-//TODO: Fix internal category not found error in LoadDatabase
-
 func main() {
 	err := godotenv.Load()
 	if err != nil {
@@ -27,7 +25,12 @@ func main() {
 	if err != nil {
 		log.Fatal("Error creating Discord client:", err)
 	}
-	defer client.Close()
+	defer func(client *api.DBClient) {
+		err := client.Close()
+		if err != nil {
+			log.Fatal("Error closing Database client:", err)
+		}
+	}(client)
 
 	// Example usage: Create a new database
 	database, err := client.LoadDatabase(os.Getenv("DISCORD_GUILD_ID"))
