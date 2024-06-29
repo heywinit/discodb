@@ -3,6 +3,7 @@ package api
 import (
 	"DiscoDB/internal/models"
 	"encoding/json"
+	"fmt"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -119,14 +120,15 @@ func (client *DBClient) LoadDatabase(databaseID string) (*models.Database, error
 				//get tables in metadata
 				tables := metadata["tables"].(map[string]interface{})
 				for _, table := range tables {
-					records := table.(map[string]interface{})["records"]
-					for _, record := range records.(map[string]interface{}) {
-						fields := record.(map[string]interface{})["fields"]
-						for fieldName, fieldValue := range fields.(map[string]interface{}) {
-							_ = fieldName
-							_ = fieldValue
-						}
+					tableMap, ok := table.(map[string]interface{})
+					if !ok {
+						continue
 					}
+
+					channelId := tableMap["id"].(string)
+					name := tableMap["name"]
+					schema := tableMap["schema"]
+					fmt.Println(channelId, name, schema)
 				}
 			}
 		}

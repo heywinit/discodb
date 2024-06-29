@@ -32,20 +32,38 @@ func main() {
 		}
 	}(client)
 
+	//// Get all guilds the bot is connected to
+	//guilds, err := client.Session.UserGuilds(100, "", "", false)
+	//if err != nil {
+	//	log.Fatal("Error fetching guilds:", err)
+	//}
+	//
+	//log.Printf("Connected to %d guilds\n", len(guilds))
+	////this is for testing purposes where we sometimes create too many databases
+	//for _, guild := range guilds {
+	//	if guild.Owner {
+	//		err := client.Session.GuildDelete(guild.ID)
+	//		if err != nil {
+	//			log.Fatal("Error deleting guild:", err)
+	//		}
+	//	}
+	//}
+
 	// Example usage: Create a new database
 	database, err := client.LoadDatabase(os.Getenv("DISCORD_GUILD_ID"))
-	//database, err := client.CreateDatabase("TestDatabase1")
+	//database, err := client.CreateDatabase("TestDatabase2")
 	if err != nil {
 		log.Fatal("Error creating database:", err)
 	}
 
 	schema := map[string]string{
-		"id":   "int",
-		"name": "string",
+		"id":    "int",
+		"name":  "string",
+		"email": "string",
 	}
 
 	// Example usage: Create a new table (text channel)
-	table, err := client.CreateTable(*database, "Users", schema)
+	table, err := client.CreateTable(*database, "users", schema)
 	if err != nil {
 		log.Fatal("Error creating table:", err)
 	}
@@ -55,6 +73,7 @@ func main() {
 		ID:     "1",
 		Fields: map[string]interface{}{"id": 1, "name": "Alice"},
 	}
+
 	err = client.CreateRecord(table.ID, newRecord)
 	if err != nil {
 		log.Fatal("Error creating record:", err)
