@@ -23,12 +23,6 @@ func main() {
 	if err != nil {
 		log.Fatal("Error creating Discord client:", err)
 	}
-	defer func(client *api.DBClient) {
-		err := client.Close()
-		if err != nil {
-			log.Fatal("Error closing Database client:", err)
-		}
-	}(client)
 
 	//// Get all guilds the bot is connected to
 	//guilds, err := client.Session.UserGuilds(100, "", "", false)
