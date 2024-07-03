@@ -7,8 +7,6 @@ import (
 	"github.com/joho/godotenv"
 	"log"
 	"os"
-	"os/signal"
-	"syscall"
 )
 
 func main() {
@@ -96,10 +94,4 @@ func main() {
 
 	log.Printf("Invite link: https://discord.gg/%s\n", invite.Code)
 	log.Printf("Records read from table %s: %v\n", table.Name, records)
-
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-
-	// Wait for a signal
-	<-stop
 }

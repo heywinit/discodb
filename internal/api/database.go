@@ -152,13 +152,3 @@ func (client *DBClient) DeleteDatabase(databaseID string) error {
 	}
 	return nil
 }
-
-func (client *DBClient) Close() error {
-	if client.Session != nil {
-		err := client.Session.Close()
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
